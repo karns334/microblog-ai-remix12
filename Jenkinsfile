@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     environment {
         IMAGE_NAME = "microblog-ai"
         CONTAINER_NAME = "microblog-ai"
@@ -10,6 +14,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
+                echo "Getting latest code from main..."
                 checkout scm
             }
         }
@@ -27,6 +32,8 @@ pipeline {
         stage('Build Image') {
             steps {
                 sh '''
+                    echo "Building Docker image..."
+
                     docker build \
                     -t ${IMAGE_NAME}:${BUILD_NUMBER} \
                     .
@@ -37,6 +44,8 @@ pipeline {
         stage('Test Image') {
             steps {
                 sh '''
+                    echo "Testing image..."
+
                     docker image inspect \
                     ${IMAGE_NAME}:${BUILD_NUMBER}
                 '''
@@ -46,6 +55,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
+                    echo "Deploying application..."
+
                     docker rm -f ${CONTAINER_NAME} || true
 
                     docker run -d \
@@ -61,7 +72,9 @@ pipeline {
             steps {
                 sh '''
                     sleep 5
+
                     docker ps
+
                     curl -f http://localhost
                 '''
             }
@@ -70,11 +83,11 @@ pipeline {
 
     post {
         success {
-            echo "Deployment successful"
+            echo "SUCCESS: Application deployed"
         }
 
         failure {
-            echo "Pipeline failed"
+            echo "FAILED: Pipeline failed"
         }
 
         always {
