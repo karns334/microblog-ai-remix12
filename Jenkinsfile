@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "microblog-ai"
+        CONTAINER_NAME = "microblog-ai"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                sh '''
+                    echo "Checking repository..."
+                    test -f Dockerfile
+                    docker --version
+                '''
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh '''
+                    docker build \
+                    -t ${IMAGE_NAME}:${BUILD_NUMBER} \
+                    .
+                '''
+            }
+        }
+
+        stage('Test Image') {
+            steps {
+                sh '''
+                    docker image inspect \
+                    ${IMAGE_NAME}:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    docker rm -f ${CONTAINER_NAME} || true
+
+                    docker run -d \
+                    --name ${CONTAINER_NAME} \
+                    --restart unless-stopped \
+                    -p 80:80 \
+                    ${IMAGE_NAME}:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    sleep 5
+                    docker ps
+                    curl -f http://localhost
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment successful"
+        }
+
+        failure {
+            echo "Pipeline failed"
+        }
+
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
+}
